@@ -802,6 +802,19 @@
       </div>
     </div>
   </section>
+
+  <teleport to="body">
+    <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="closeConfirm">
+      <div class="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h3 class="text-lg font-semibold text-stone-900">{{ confirmModal.title }}</h3>
+        <p class="mt-2 text-sm text-stone-600">{{ confirmModal.message }}</p>
+        <div class="mt-6 flex justify-end gap-3">
+          <button @click="closeConfirm" class="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50">取消</button>
+          <button @click="executeConfirm" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">确认删除</button>
+        </div>
+      </div>
+    </div>
+  </teleport>
 </template>
 
 <script setup>
@@ -846,6 +859,7 @@ const mergingMemorySuggestionKey = ref('')
 const resolvingMemoryConflictKey = ref('')
 const memoryMessage = ref('')
 const deletingMemoryId = ref(null)
+const confirmModal = ref({ show: false, title: '', message: '', onConfirm: null })
 
 const memoryForm = ref({
   category: 'general',
@@ -1380,19 +1394,29 @@ async function resolveMemoryConflict(item, index, action) {
   }
 }
 
-async function removeMemoryRecord(memoryId) {
-  if (!window.confirm(t('deleteMemoryConfirm'))) {
-    return
-  }
-  deletingMemoryId.value = memoryId
-  try {
-    await api.deleteMemory(memoryId)
-    await refreshAllMemoryData()
-  } catch (e) {
-    memoryMessage.value = t('deleteMemoryFailed', { message: e.message })
-  } finally {
-    deletingMemoryId.value = null
-  }
+function showConfirm(title, message, onConfirm) {
+  confirmModal.value = { show: true, title, message, onConfirm }
+}
+function closeConfirm() {
+  confirmModal.value.show = false
+}
+function executeConfirm() {
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm()
+  closeConfirm()
+}
+
+function removeMemoryRecord(memoryId) {
+  showConfirm('删除记忆', '确定删除这条记忆吗？此操作不可恢复。', async () => {
+    deletingMemoryId.value = memoryId
+    try {
+      await api.deleteMemory(memoryId)
+      await refreshAllMemoryData()
+    } catch (e) {
+      memoryMessage.value = t('deleteMemoryFailed', { message: e.message })
+    } finally {
+      deletingMemoryId.value = null
+    }
+  })
 }
 
 onMounted(() => {

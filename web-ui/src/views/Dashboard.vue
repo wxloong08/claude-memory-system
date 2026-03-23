@@ -34,6 +34,15 @@
         </div>
       </div>
 
+      <div v-if="rawStats?.database?.total_conversations === 0" class="mt-6 rounded-2xl border-2 border-dashed border-stone-300 p-8 text-center">
+        <div class="text-2xl">📥</div>
+        <h3 class="mt-3 text-lg font-semibold text-stone-800">开始使用</h3>
+        <p class="mt-2 text-sm text-stone-500">还没有对话数据。你可以通过以下方式导入：</p>
+        <div class="mt-4 flex flex-wrap justify-center gap-3">
+          <router-link to="/settings" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm text-white hover:bg-[var(--brand-deep)]">导入本地数据</router-link>
+        </div>
+      </div>
+
       <div class="memory-panel rounded-[26px] p-5 lg:p-6">
         <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">{{ t('dashboardQuickActions') }}</div>
         <h3 class="mt-2 text-xl font-semibold text-stone-900">{{ t('dashboardQuickActions') }}</h3>

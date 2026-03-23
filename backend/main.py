@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 _db_lock = threading.RLock()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -1121,6 +1121,8 @@ def _update_conversation_summary(conversation_id: str, summary: str) -> None:
 @app.post("/api/conversations")
 async def add_conversation(conv: ConversationInput):
     """Receive and store a new conversation"""
+    if not conv.messages:
+        raise HTTPException(status_code=422, detail="messages must not be empty")
     conv_id = _persist_conversation_payload(conv.model_dump())
 
     return {"status": "ok", "conversation_id": conv_id}
@@ -1203,19 +1205,25 @@ async def health_check():
     return {"status": "healthy" if db_ok else "degraded", "database": "ok" if db_ok else "error"}
 
 @app.get("/api/search")
-async def search_conversations(query: str, limit: int = 5):
+async def search_conversations(query: str = Query(None), q: str = Query(None), limit: int = 5):
     """Semantic search for conversations - returns frontend-friendly format"""
-    if not query or not query.strip():
-        return {"query": query, "results": [], "memory_results": [], "count": 0, "memory_count": 0}
-    query = query[:500]
+    search_query = query or q
+    if not search_query or not search_query.strip():
+        if search_query is None:
+            raise HTTPException(status_code=422, detail="query or q parameter required")
+        return {"query": search_query, "results": [], "memory_results": [], "count": 0, "memory_count": 0}
+    search_query = search_query[:500]
     limit = max(1, min(limit, 50))
-    raw_results = vector_store.search(query, top_k=limit)
+    raw_results = vector_store.search(search_query, top_k=limit)
     conversation_map = _load_conversation_map([item.get("id", "") for item in raw_results])
     results = [_transform_vector_result(item, conversation_map) for item in raw_results]
-    memory_results = _search_memories(query, limit=min(limit, 5))
+    # Filter out results with low similarity scores
+    MIN_SIMILARITY = 0.1
+    results = [r for r in results if r.get('similarity', 0) >= MIN_SIMILARITY]
+    memory_results = _search_memories(search_query, limit=min(limit, 5))
 
     return {
-        "query": query,
+        "query": search_query,
         "results": results,
         "memory_results": memory_results,
         "count": len(results),

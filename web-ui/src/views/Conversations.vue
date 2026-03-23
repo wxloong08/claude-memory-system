@@ -163,11 +163,14 @@
     </div>
 
     <div v-else-if="filteredConversations.length === 0" class="memory-panel rounded-[28px] p-10 text-center">
-      <div class="text-sm uppercase tracking-[0.22em] text-stone-400">{{ t('emptyState') }}</div>
-      <div class="mt-3 text-2xl font-semibold text-stone-900">{{ t('noConversationsFound') }}</div>
-      <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-stone-500">
-        {{ t('syncHint') }}
-      </p>
+      <div class="text-2xl">🔍</div>
+      <p class="mt-2 font-medium text-stone-900">{{ t('noConversationsFound') }}</p>
+      <p class="mt-1 text-xs text-stone-400">试试清除筛选条件或导入更多对话</p>
+      <button v-if="quickFilter || selectedPlatform || selectedTimeRange !== 'all'"
+        @click="quickFilter = ''; selectedPlatform = ''; selectedTimeRange = 'all'"
+        class="mt-3 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--brand)] ring-1 ring-[var(--brand)]/30 hover:bg-[var(--brand)]/5">
+        清除所有筛选
+      </button>
     </div>
 
     <div v-else class="memory-thread-list-wrap">

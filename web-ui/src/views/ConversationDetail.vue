@@ -577,6 +577,19 @@
       </div>
     </template>
   </section>
+
+  <teleport to="body">
+    <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="closeConfirm">
+      <div class="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h3 class="text-lg font-semibold text-stone-900">{{ confirmModal.title }}</h3>
+        <p class="mt-2 text-sm text-stone-600">{{ confirmModal.message }}</p>
+        <div class="mt-6 flex justify-end gap-3">
+          <button @click="closeConfirm" class="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50">取消</button>
+          <button @click="executeConfirm" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">确认删除</button>
+        </div>
+      </div>
+    </div>
+  </teleport>
 </template>
 
 <script setup>
@@ -620,6 +633,7 @@ const visibleMessageLimit = ref(messagePageSize)
 const transcriptSentinel = ref(null)
 const autoLoadingTranscript = ref(false)
 const deleting = ref(false)
+const confirmModal = ref({ show: false, title: '', message: '', onConfirm: null })
 const selectedMemoryTier = ref('temporary')
 const extractingMemories = ref(false)
 const memoryActionMessage = ref('')
@@ -1156,11 +1170,19 @@ async function runAnalysis() {
   }
 }
 
-async function deleteCurrentConversation() {
-  if (!route.params.id || deleting.value) return
+function showConfirm(title, message, onConfirm) {
+  confirmModal.value = { show: true, title, message, onConfirm }
+}
+function closeConfirm() {
+  confirmModal.value.show = false
+}
+function executeConfirm() {
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm()
+  closeConfirm()
+}
 
-  const confirmed = window.confirm(t('deleteConversationConfirm'))
-  if (!confirmed) return
+async function doDeleteConversation() {
+  if (!route.params.id || deleting.value) return
 
   deleting.value = true
   actionError.value = null
@@ -1172,6 +1194,11 @@ async function deleteCurrentConversation() {
   } finally {
     deleting.value = false
   }
+}
+
+function deleteCurrentConversation() {
+  if (!route.params.id || deleting.value) return
+  showConfirm('删除对话', '确定删除这个对话吗？此操作不可恢复。', () => { doDeleteConversation() })
 }
 
 onMounted(async () => {
