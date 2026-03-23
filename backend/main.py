@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 import json
@@ -32,7 +33,47 @@ from database import Database
 from local_importer import import_sources
 from vector_store import VectorStore
 
-app = FastAPI(title="Claude Memory Hub")
+@asynccontextmanager
+async def lifespan(application):
+    # Startup
+    global backup_task, sync_task
+    if backup_task is None or backup_task.done():
+        backup_task = asyncio.create_task(_backup_scheduler_loop())
+    try:
+        from sync_scheduler import periodic_sync_loop
+        from api_v2 import _persist_v2_callback
+        if sync_task is None or sync_task.done():
+            sync_task = asyncio.create_task(
+                periodic_sync_loop(_persist_v2_callback, interval_seconds=300, limit_per_source=30)
+            )
+    except ImportError:
+        pass
+
+    yield
+
+    # Shutdown
+    if backup_task is not None:
+        backup_task.cancel()
+        try:
+            await backup_task
+        except asyncio.CancelledError:
+            pass
+        backup_task = None
+    if sync_task is not None:
+        try:
+            from sync_scheduler import stop_periodic_sync
+            stop_periodic_sync()
+        except ImportError:
+            pass
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            pass
+        sync_task = None
+
+
+app = FastAPI(title="Claude Memory Hub", lifespan=lifespan)
 
 # Mount V2 API router
 try:
@@ -148,47 +189,7 @@ _sync_existing_conversations_to_vector_store()
 sync_task: asyncio.Task | None = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    global backup_task, sync_task
-    if backup_task is None or backup_task.done():
-        backup_task = asyncio.create_task(_backup_scheduler_loop())
-
-    # Start V2 periodic sync (every 5 minutes)
-    try:
-        from sync_scheduler import periodic_sync_loop
-        from api_v2 import _persist_v2_callback
-        if sync_task is None or sync_task.done():
-            sync_task = asyncio.create_task(
-                periodic_sync_loop(_persist_v2_callback, interval_seconds=300, limit_per_source=30)
-            )
-    except ImportError:
-        pass
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    global backup_task, sync_task
-    if backup_task is not None:
-        backup_task.cancel()
-        try:
-            await backup_task
-        except asyncio.CancelledError:
-            pass
-        backup_task = None
-
-    if sync_task is not None:
-        try:
-            from sync_scheduler import stop_periodic_sync
-            stop_periodic_sync()
-        except ImportError:
-            pass
-        sync_task.cancel()
-        try:
-            await sync_task
-        except asyncio.CancelledError:
-            pass
-        sync_task = None
+## Lifecycle managed by lifespan() context manager above
 
 
 async def _backup_scheduler_loop():

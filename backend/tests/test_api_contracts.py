@@ -19,7 +19,9 @@ client = TestClient(main.app)
 def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert "database" in body
 
 
 def test_ai_status_endpoint_contract():
