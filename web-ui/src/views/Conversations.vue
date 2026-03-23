@@ -67,6 +67,33 @@
             </button>
           </div>
 
+          <!-- Active filter chips -->
+          <div v-if="quickFilter || selectedPlatform || selectedTimeRange !== 'all' || selectedSort !== 'newest'"
+            class="mt-2 flex flex-wrap gap-1.5">
+            <span v-if="quickFilter"
+              class="inline-flex items-center gap-1 rounded-full bg-[var(--brand)]/10 px-2.5 py-1 text-xs font-medium text-[var(--brand)]">
+              搜索: {{ quickFilter }}
+              <button @click="quickFilter = ''" class="ml-0.5 hover:text-red-500">&times;</button>
+            </span>
+            <span v-if="selectedPlatform"
+              class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+              平台: {{ selectedPlatform }}
+              <button @click="selectedPlatform = ''" class="ml-0.5 hover:text-red-500">&times;</button>
+            </span>
+            <span v-if="selectedTimeRange !== 'all'"
+              class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+              时间: {{ selectedTimeRange }}
+              <button @click="selectedTimeRange = 'all'" class="ml-0.5 hover:text-red-500">&times;</button>
+            </span>
+            <span v-if="selectedSort !== 'newest'"
+              class="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600">
+              排序: {{ selectedSort }}
+              <button @click="selectedSort = 'newest'" class="ml-0.5 hover:text-red-500">&times;</button>
+            </span>
+            <button @click="quickFilter = ''; selectedPlatform = ''; selectedTimeRange = 'all'; selectedSort = 'newest'"
+              class="text-xs text-stone-400 hover:text-red-500">清除全部</button>
+          </div>
+
           <!-- Row 2: Advanced filters (toggleable) -->
           <div v-if="showAdvancedFilters" class="flex flex-wrap items-center gap-3">
             <label class="inline-flex items-center gap-3 rounded-full bg-white/80 px-4 py-2 ring-1 ring-stone-200/70">
@@ -174,6 +201,13 @@
     </div>
 
     <div v-else class="memory-thread-list-wrap">
+      <!-- Results count indicator -->
+      <div class="mb-2 flex items-center justify-between text-xs text-stone-400">
+        <span>{{ filteredConversations.length }} 条结果{{ totalAvailable > filteredConversations.length ? ' (共 ' + totalAvailable + ' 条)' : '' }}</span>
+        <span v-if="renderedConversations.length < filteredConversations.length">
+          已显示 {{ renderedConversations.length }} / {{ filteredConversations.length }}
+        </span>
+      </div>
       <div class="memory-thread-list">
         <router-link
           v-for="conv in renderedConversations"

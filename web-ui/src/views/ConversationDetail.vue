@@ -101,6 +101,9 @@
 
           <div v-else class="memory-transcript-shell mt-8">
             <div class="memory-transcript-column">
+              <div v-if="parsedMessages.length > 0" class="mb-2 text-xs text-stone-400">
+                {{ renderedMessages.length }} / {{ parsedMessages.length }} 条消息
+              </div>
               <div class="memory-transcript">
                 <article
                   v-for="(message, index) in renderedMessages"
@@ -598,6 +601,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../api/memory-hub.js'
 import { platformEmoji, platformClass } from '../constants/platforms.js'
 import { useI18n } from '../composables/useI18n.js'
+import { useToast } from '../composables/useToast.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -640,6 +644,7 @@ const memoryActionMessage = ref('')
 let transcriptObserver = null
 let loadRequestId = 0
 const { t, formatDateTime } = useI18n()
+const toast = useToast()
 
 const parsedMessages = computed(() => parseMessages(conversation.value?.full_content || ''))
 const renderedMessages = computed(() => parsedMessages.value.slice(0, visibleMessageLimit.value))
@@ -1145,8 +1150,10 @@ async function extractMemories() {
       : t('extractMemoriesEmpty')
     const memoryResult = await api.getConversationMemories(route.params.id)
     conversationMemories.value = memoryResult.memories || []
+    toast.success(memoryActionMessage.value)
   } catch (e) {
     actionError.value = t('extractMemoriesFailed', { message: e.message })
+    toast.error('操作失败: ' + e.message)
   } finally {
     extractingMemories.value = false
   }
@@ -1163,8 +1170,10 @@ async function runAnalysis() {
     if (analysis.value?.summary) {
       conversation.value = { ...conversation.value, summary: analysis.value.summary }
     }
+    toast.success('分析完成')
   } catch (e) {
     analysisError.value = t('analyzeConversationFailed', { message: e.message })
+    toast.error(t('analyzeConversationFailed', { message: e.message }))
   } finally {
     analyzing.value = false
   }
@@ -1188,9 +1197,11 @@ async function doDeleteConversation() {
   actionError.value = null
   try {
     await api.deleteConversation(route.params.id)
+    toast.success('对话已删除')
     await router.push('/conversations')
   } catch (e) {
     actionError.value = t('deleteConversationFailed', { message: e.message })
+    toast.error('操作失败: ' + e.message)
   } finally {
     deleting.value = false
   }

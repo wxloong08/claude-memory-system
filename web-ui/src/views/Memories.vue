@@ -821,8 +821,10 @@
 import { computed, onMounted, ref } from 'vue'
 import api from '../api/memory-hub.js'
 import { useI18n } from '../composables/useI18n.js'
+import { useToast } from '../composables/useToast.js'
 
 const { t, formatDateTime } = useI18n()
+const toast = useToast()
 
 const activeTab = ref('memories')
 const tabs = computed(() => [
@@ -1259,8 +1261,10 @@ async function addMemoryRecord() {
     memoryForm.value.key = ''
     memoryForm.value.value = ''
     await refreshAllMemoryData()
+    toast.success('记忆已添加')
   } catch (e) {
     memoryMessage.value = t('addMemoryFailed', { message: e.message })
+    toast.error('添加失败: ' + e.message)
   } finally {
     addingMemory.value = false
   }
@@ -1294,8 +1298,10 @@ async function saveMemoryRecord(memoryId) {
     memoryMessage.value = t('updateMemoryDone')
     editingMemoryId.value = null
     await refreshAllMemoryData()
+    toast.success('记忆已更新')
   } catch (e) {
     memoryMessage.value = t('updateMemoryFailed', { message: e.message })
+    toast.error('更新失败: ' + e.message)
   } finally {
     savingMemoryId.value = null
   }
@@ -1362,8 +1368,10 @@ async function mergeMemorySuggestion(item, index, deleteSources = false) {
     })
     memoryMessage.value = deleteSources ? t('mergeMemoryAndDeleteDone') : t('mergeMemoryDone')
     await refreshAllMemoryData()
+    toast.success('记忆合并完成')
   } catch (e) {
     memoryMessage.value = t('mergeMemoryFailed', { message: e.message })
+    toast.error('合并失败: ' + e.message)
   } finally {
     mergingMemorySuggestionKey.value = ''
   }
@@ -1411,8 +1419,10 @@ function removeMemoryRecord(memoryId) {
     try {
       await api.deleteMemory(memoryId)
       await refreshAllMemoryData()
+      toast.success('记忆已删除')
     } catch (e) {
       memoryMessage.value = t('deleteMemoryFailed', { message: e.message })
+      toast.error('删除失败: ' + e.message)
     } finally {
       deletingMemoryId.value = null
     }

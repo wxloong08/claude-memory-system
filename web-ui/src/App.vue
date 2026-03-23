@@ -127,6 +127,22 @@
         <router-view />
       </main>
     </div>
+
+    <div class="fixed top-4 right-4 z-[100] flex flex-col gap-2" style="pointer-events: none;">
+      <transition-group name="toast">
+        <div v-for="toast in toasts" :key="toast.id"
+          style="pointer-events: auto;"
+          class="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-sm transition-all duration-300"
+          :class="{
+            'bg-green-50 text-green-800 ring-1 ring-green-200': toast.type === 'success',
+            'bg-red-50 text-red-800 ring-1 ring-red-200': toast.type === 'error',
+            'bg-stone-50 text-stone-800 ring-1 ring-stone-200': toast.type === 'info'
+          }">
+          <span>{{ toast.type === 'success' ? '\u2713' : toast.type === 'error' ? '\u2715' : '\u2139' }}</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
@@ -135,11 +151,13 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from './api/memory-hub.js'
 import { useI18n } from './composables/useI18n.js'
+import { useToast } from './composables/useToast.js'
 
 const route = useRoute()
 const connected = ref(false)
 let healthInterval = null
 const { locale, setLocale, t } = useI18n()
+const { toasts } = useToast()
 
 const navItems = computed(() => ([
   { path: '/', icon: '◎', label: t('navOverview') },
@@ -173,3 +191,10 @@ onUnmounted(() => {
   if (healthInterval) clearInterval(healthInterval)
 })
 </script>
+
+<style>
+.toast-enter-active { transition: all 0.3s ease-out; }
+.toast-leave-active { transition: all 0.3s ease-in; }
+.toast-enter-from { opacity: 0; transform: translateX(100%); }
+.toast-leave-to { opacity: 0; transform: translateX(100%); }
+</style>
