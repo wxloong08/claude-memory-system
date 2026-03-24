@@ -1,12 +1,13 @@
 <template>
   <section class="space-y-5">
-    <router-link
-      to="/conversations"
+    <button
+      type="button"
       class="inline-flex items-center gap-2 rounded-full bg-white/82 px-4 py-2 text-sm font-medium text-stone-700 shadow-sm ring-1 ring-stone-200/70 transition-colors hover:text-stone-900"
+      @click="goBack"
     >
       <span>&larr;</span>
       {{ t('backToThreads') }}
-    </router-link>
+    </button>
 
     <div v-if="loading" class="memory-panel rounded-[28px] p-8 text-sm text-stone-500">{{ t('loadingConversation') }}</div>
 
@@ -53,26 +54,29 @@
               </label>
               <button
                 type="button"
-                class="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white ring-1 ring-[var(--brand)] transition-colors hover:bg-[var(--brand-deep)] disabled:opacity-50"
+                class="inline-flex items-center gap-2 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white ring-1 ring-[var(--brand)] transition-colors hover:bg-[var(--brand-deep)] disabled:opacity-50"
                 :disabled="analyzing"
                 @click="runAnalysis"
               >
+                <svg v-if="analyzing" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                 {{ analyzing ? t('analyzing') : t('analyze') }}
               </button>
               <button
                 type="button"
-                class="rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-200/80 transition-colors hover:bg-stone-50 disabled:opacity-50"
+                class="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-200/80 transition-colors hover:bg-stone-50 disabled:opacity-50"
                 :disabled="extractingMemories"
                 @click="extractMemories"
               >
+                <svg v-if="extractingMemories" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                 {{ extractingMemories ? t('extractingMemories') : t('extractMemories') }}
               </button>
               <button
                 type="button"
-                class="rounded-full bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                class="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 disabled:opacity-50"
                 :disabled="deleting"
                 @click="deleteCurrentConversation"
               >
+                <svg v-if="deleting" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                 {{ deleting ? t('deletingConversation') : t('deleteConversation') }}
               </button>
             </div>
@@ -102,7 +106,7 @@
           <div v-else class="memory-transcript-shell mt-8">
             <div class="memory-transcript-column">
               <div v-if="parsedMessages.length > 0" class="mb-2 text-xs text-stone-400">
-                {{ renderedMessages.length }} / {{ parsedMessages.length }} 条消息
+                {{ t('showingCount', { shown: renderedMessages.length, total: parsedMessages.length }) }} {{ t('messages', { count: parsedMessages.length }) }}
               </div>
               <div class="memory-transcript">
                 <article
@@ -185,8 +189,9 @@
               <button
                 @click="runAnalysis"
                 :disabled="analyzing"
-                class="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-deep)] disabled:cursor-not-allowed disabled:opacity-60"
+                class="inline-flex items-center gap-2 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-deep)] disabled:cursor-not-allowed disabled:opacity-60"
               >
+                <svg v-if="analyzing" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                 {{ analyzing ? t('analyzing') : t('analyze') }}
               </button>
             </div>
@@ -587,8 +592,8 @@
         <h3 class="text-lg font-semibold text-stone-900">{{ confirmModal.title }}</h3>
         <p class="mt-2 text-sm text-stone-600">{{ confirmModal.message }}</p>
         <div class="mt-6 flex justify-end gap-3">
-          <button @click="closeConfirm" class="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50">取消</button>
-          <button @click="executeConfirm" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">确认删除</button>
+          <button @click="closeConfirm" class="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50">{{ t('confirmCancel') }}</button>
+          <button @click="executeConfirm" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">{{ t('confirmDelete') }}</button>
         </div>
       </div>
     </div>
@@ -696,6 +701,14 @@ const exportMemoryDiff = computed(() => {
     removed: previous.filter(memory => !currentMap.has(Number(memory.id))),
   }
 })
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/conversations')
+  }
+}
 
 function formatTime(ts) {
   return formatDateTime(ts)
@@ -1153,7 +1166,7 @@ async function extractMemories() {
     toast.success(memoryActionMessage.value)
   } catch (e) {
     actionError.value = t('extractMemoriesFailed', { message: e.message })
-    toast.error('操作失败: ' + e.message)
+    toast.error(t('operationFailed', { message: e.message }))
   } finally {
     extractingMemories.value = false
   }
@@ -1170,7 +1183,7 @@ async function runAnalysis() {
     if (analysis.value?.summary) {
       conversation.value = { ...conversation.value, summary: analysis.value.summary }
     }
-    toast.success('分析完成')
+    toast.success(t('analysisComplete'))
   } catch (e) {
     analysisError.value = t('analyzeConversationFailed', { message: e.message })
     toast.error(t('analyzeConversationFailed', { message: e.message }))
@@ -1197,11 +1210,11 @@ async function doDeleteConversation() {
   actionError.value = null
   try {
     await api.deleteConversation(route.params.id)
-    toast.success('对话已删除')
+    toast.success(t('conversationDeleted'))
     await router.push('/conversations')
   } catch (e) {
     actionError.value = t('deleteConversationFailed', { message: e.message })
-    toast.error('操作失败: ' + e.message)
+    toast.error(t('operationFailed', { message: e.message }))
   } finally {
     deleting.value = false
   }
@@ -1209,7 +1222,7 @@ async function doDeleteConversation() {
 
 function deleteCurrentConversation() {
   if (!route.params.id || deleting.value) return
-  showConfirm('删除对话', '确定删除这个对话吗？此操作不可恢复。', () => { doDeleteConversation() })
+  showConfirm(t('deleteConversation'), t('deleteConversationConfirm'), () => { doDeleteConversation() })
 }
 
 onMounted(async () => {

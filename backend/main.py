@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -46,8 +47,11 @@ async def lifespan(application):
             sync_task = asyncio.create_task(
                 periodic_sync_loop(_persist_v2_callback, interval_seconds=300, limit_per_source=30)
             )
-    except ImportError:
-        pass
+            logger.info("Periodic sync scheduler started")
+    except ImportError as e:
+        logger.warning("V2 sync not available: %s", e)
+    except Exception as e:
+        logger.error("Failed to start sync scheduler: %s", e)
 
     yield
 
@@ -108,31 +112,53 @@ AI_CONFIG_PATH = DATA_DIR / "ai_config.json"
 db = Database(str(DATA_DIR / "memory.db"))
 vector_store = VectorStore(str(DATA_DIR / "vectors"))
 backup_task: asyncio.Task | None = None
+sync_task: asyncio.Task | None = None
+db_v2 = None  # Initialized later; declared here to avoid NameError
 
 
 def _sync_existing_conversations_to_vector_store():
     """Backfill persisted conversations into the active vector collection."""
-    # Sync V1 conversations
-    cursor = db.conn.execute(
-        """
-        SELECT id, platform, timestamp, project, provider, model, assistant_label, summary, full_content, importance, status
-        FROM conversations
-        """
-    )
-    vector_store.sync_from_records([dict(row) for row in cursor.fetchall()])
+    BATCH_SIZE = 1000
 
-    # Sync V2 archive_conversations (if table exists)
-    try:
-        v2_cursor = db.conn.execute(
+    # Sync V1 conversations in batches
+    offset = 0
+    while True:
+        cursor = db.conn.execute(
             """
-            SELECT id, platform, started_at as timestamp, '' as project,
-                   provider, model, assistant_label, summary, importance
-            FROM archive_conversations
-            """
+            SELECT id, platform, timestamp, project, provider, model, assistant_label, summary, full_content, importance, status
+            FROM conversations
+            ORDER BY id
+            LIMIT ? OFFSET ?
+            """,
+            (BATCH_SIZE, offset),
         )
-        v2_rows = [dict(row) for row in v2_cursor.fetchall()]
-        if v2_rows:
-            # Batch fetch all messages for V2 conversations in one query
+        rows = [dict(row) for row in cursor.fetchall()]
+        if not rows:
+            break
+        vector_store.sync_from_records(rows)
+        if len(rows) < BATCH_SIZE:
+            break
+        offset += BATCH_SIZE
+
+    # Sync V2 archive_conversations in batches (if table exists)
+    try:
+        offset = 0
+        while True:
+            v2_cursor = db.conn.execute(
+                """
+                SELECT id, platform, started_at as timestamp, '' as project,
+                       provider, model, assistant_label, summary, importance
+                FROM archive_conversations
+                ORDER BY id
+                LIMIT ? OFFSET ?
+                """,
+                (BATCH_SIZE, offset),
+            )
+            v2_rows = [dict(row) for row in v2_cursor.fetchall()]
+            if not v2_rows:
+                break
+
+            # Batch fetch messages for this chunk of conversations
             conv_ids = [row["id"] for row in v2_rows]
             placeholders = ",".join("?" for _ in conv_ids)
             all_msgs_cursor = db.conn.execute(
@@ -150,6 +176,10 @@ def _sync_existing_conversations_to_vector_store():
                     f"{m['role']}: {m['content']}" for m in msgs
                 )
             vector_store.sync_from_records(v2_rows)
+
+            if len(v2_rows) < BATCH_SIZE:
+                break
+            offset += BATCH_SIZE
     except Exception as e:
         # Table may not exist yet on first startup
         logger.warning("V2 sync to vector store skipped: %s", e)
@@ -186,18 +216,21 @@ def _reload_runtime_state():
 _sync_existing_conversations_to_vector_store()
 
 
-sync_task: asyncio.Task | None = None
-
-
 ## Lifecycle managed by lifespan() context manager above
 
 
 async def _backup_scheduler_loop():
+    consecutive_failures = 0
     while True:
         try:
             run_scheduled_backup_if_due(db.conn, DATA_DIR)
+            consecutive_failures = 0
         except Exception as e:
-            logger.warning("[backup_scheduler] Error: %s", e)
+            consecutive_failures += 1
+            logger.error("[backup_scheduler] Backup failed (attempt %d): %s", consecutive_failures, e)
+            if consecutive_failures >= 5:
+                logger.critical("[backup_scheduler] Too many consecutive failures, stopping backup scheduler")
+                break
         await asyncio.sleep(300)
 
 class ConversationInput(BaseModel):
@@ -1196,6 +1229,7 @@ async def get_context(
     return {"context": context}
 
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     try:
@@ -1203,7 +1237,17 @@ async def health_check():
         db_ok = True
     except Exception:
         db_ok = False
-    return {"status": "healthy" if db_ok else "degraded", "database": "ok" if db_ok else "error"}
+    try:
+        vector_store.collection.count()
+        vs_ok = True
+    except Exception:
+        vs_ok = False
+    all_ok = db_ok and vs_ok
+    return {
+        "status": "healthy" if all_ok else "degraded",
+        "database": "ok" if db_ok else "error",
+        "vector_store": "ok" if vs_ok else "error",
+    }
 
 @app.get("/api/search")
 async def search_conversations(query: str = Query(None), q: str = Query(None), limit: int = 5):
@@ -1247,25 +1291,16 @@ async def get_related_conversations(conversation_id: str, limit: int = 3):
 @app.get("/api/stats")
 async def get_stats():
     """Get system statistics"""
-    # Database stats
-    import sqlite3
-    conn = sqlite3.connect(str(DATA_DIR / "memory.db"))
-    cursor = conn.cursor()
+    total_conversations = db.conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM conversations")
-    total_conversations = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT platform, COUNT(*) as count, AVG(importance) as avg_importance
-        FROM conversations
-        GROUP BY platform
-    """)
     by_platform = [
         {"platform": row[0], "count": row[1], "avg_importance": round(row[2], 1)}
-        for row in cursor.fetchall()
+        for row in db.conn.execute("""
+            SELECT platform, COUNT(*) as count, AVG(importance) as avg_importance
+            FROM conversations
+            GROUP BY platform
+        """).fetchall()
     ]
-
-    conn.close()
 
     # Vector store stats
     vector_stats = vector_store.get_stats()
@@ -1372,9 +1407,10 @@ async def list_memories():
 async def list_memory_merge_suggestions(limit: int = 20):
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+    suggestions = _memory_merge_suggestions(limit=limit)
     return {
-        "suggestions": _memory_merge_suggestions(limit=limit),
-        "count": len(_memory_merge_suggestions(limit=limit)),
+        "suggestions": suggestions,
+        "count": len(suggestions),
     }
 
 
@@ -1856,11 +1892,14 @@ async def get_conversation(conversation_id: str):
 async def delete_conversation(conversation_id: str):
     """Delete one conversation from the database and vector store."""
     _get_conversation_record(conversation_id)
+    # Delete from vector store first (it's a cache, can be rebuilt)
+    try:
+        vector_store.delete_conversation(conversation_id)
+    except Exception as e:
+        logger.warning("Failed to delete from vector store: %s", e)
     deleted = db.delete_conversation(conversation_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
-    vector_store.delete_conversation(conversation_id)
     return {
         "status": "ok",
         "conversation_id": conversation_id,
@@ -2337,4 +2376,6 @@ async def v2_stats():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8765)
+    port = int(os.getenv("MEMORY_HUB_PORT", "8765"))
+    host = os.getenv("MEMORY_HUB_HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=port)

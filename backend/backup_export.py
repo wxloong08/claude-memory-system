@@ -147,19 +147,13 @@ def create_backup_bundle(db_connection, data_dir: Path) -> dict:
         },
     }
 
-    source_db_path = data_dir / "memory.db"
     db_backup_path = bundle_dir / "memory.db"
-    if source_db_path.exists():
-        source_conn = sqlite3.connect(str(source_db_path))
-        try:
-            target_conn = sqlite3.connect(str(db_backup_path))
-            try:
-                source_conn.backup(target_conn)
-            finally:
-                target_conn.close()
-        finally:
-            source_conn.close()
-        manifest["files"]["memory_db"] = str(db_backup_path)
+    target_conn = sqlite3.connect(str(db_backup_path))
+    try:
+        db_connection.backup(target_conn)
+    finally:
+        target_conn.close()
+    manifest["files"]["memory_db"] = str(db_backup_path)
 
     import_state_path = data_dir / "client_import_state.json"
     if import_state_path.exists():

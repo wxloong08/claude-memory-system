@@ -20,8 +20,9 @@ def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "healthy"
+    assert body["status"] in ("healthy", "degraded")
     assert "database" in body
+    assert "vector_store" in body
 
 
 def test_ai_status_endpoint_contract():

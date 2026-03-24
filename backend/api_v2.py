@@ -8,6 +8,7 @@ V1 endpoints in main.py remain unchanged for backward compatibility.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -24,6 +25,8 @@ from models_v2 import (
     WorkingMemoryInput,
 )
 from vector_store import VectorStore
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2", tags=["v2"])
 
@@ -294,6 +297,11 @@ async def delete_conversation(conversation_id: str):
     """Delete a conversation and its messages."""
     if not db_v2.delete_conversation(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if _vector_store:
+        try:
+            _vector_store.delete_conversation(conversation_id)
+        except Exception as e:
+            logger.warning("Failed to delete conversation %s from vector store: %s", conversation_id, e)
     return {"status": "ok", "deleted": conversation_id}
 
 
@@ -320,57 +328,9 @@ async def import_local_v2(payload: LocalImportV2Input):
     }
     sources = sources_map.get(payload.source, [payload.source])
 
-    def persist_v2(v1_payload: dict) -> str:
-        """Persist callback that stores in V2 archive tables."""
-        messages = v1_payload.get("messages", [])
-        msg_dicts = [
-            {"role": m.get("role", "user"), "content": m.get("content", ""), "content_type": "text"}
-            for m in messages
-        ]
-
-        summary = _derive_summary_v2(
-            msg_dicts,
-            project=v1_payload.get("project"),
-            provided_summary=v1_payload.get("summary"),
-        )
-
-        importance = min(10, 5 + len(msg_dicts) // 4)
-        conv_id, _, _ = db_v2.add_conversation(
-            platform=v1_payload.get("platform", "unknown"),
-            started_at=v1_payload.get("timestamp", datetime.now().isoformat()),
-            messages=msg_dicts,
-            workspace_path=v1_payload.get("working_dir"),
-            summary=summary,
-            summary_source="imported" if v1_payload.get("summary") else "fallback",
-            importance=importance,
-            provider=v1_payload.get("provider"),
-            model=v1_payload.get("model"),
-            assistant_label=v1_payload.get("assistant_label"),
-            source_path=v1_payload.get("source_path"),
-            source_fingerprint=v1_payload.get("source_fingerprint"),
-            content_hash=v1_payload.get("content_hash"),
-            metadata={
-                "recovery_mode": v1_payload.get("recovery_mode"),
-                "project": v1_payload.get("project"),
-            },
-        )
-        _index_conversation_in_vector_store(
-            conv_id=conv_id,
-            messages_dicts=msg_dicts,
-            platform=v1_payload.get("platform", "unknown"),
-            started_at=v1_payload.get("timestamp", ""),
-            project=v1_payload.get("project", ""),
-            provider=v1_payload.get("provider", ""),
-            model=v1_payload.get("model", ""),
-            assistant_label=v1_payload.get("assistant_label", ""),
-            importance=importance,
-            summary=summary,
-        )
-        return conv_id
-
     try:
         result = v1_import_sources(
-            sources, payload.limit, payload.dry_run, persist_v2,
+            sources, payload.limit, payload.dry_run, _persist_v2_callback,
         )
     except KeyError as exc:
         raise HTTPException(status_code=400, detail=f"Unsupported source: {payload.source}") from exc

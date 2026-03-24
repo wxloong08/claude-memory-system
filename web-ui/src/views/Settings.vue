@@ -464,11 +464,11 @@ async function runLocalImport() {
     } else {
       importMessage.value = t('importCompleted')
     }
-    toast.success('导入完成')
+    toast.success(t('importDone'))
   } catch (e) {
     importMessage.value = t('importFailedMessage', { message: e.message })
     importResult.value = ''
-    toast.error('导入失败: ' + e.message)
+    toast.error(t('importFailed', { message: e.message }))
   } finally {
     importingLocal.value = false
   }
@@ -483,11 +483,11 @@ async function runBackup() {
     backupResult.value = JSON.stringify(result, null, 2)
     backupMessage.value = t('backupCompleted')
     await loadBackupSettings()
-    toast.success('备份完成')
+    toast.success(t('backupDone'))
   } catch (e) {
     backupMessage.value = t('backupFailedMessage', { message: e.message })
     backupResult.value = ''
-    toast.error('备份失败: ' + e.message)
+    toast.error(t('backupFailed', { message: e.message }))
   } finally {
     backingUp.value = false
   }
@@ -554,11 +554,11 @@ async function runRestore() {
     restoreMessage.value = t('restoreCompleted')
     await loadBackupSettings()
     await viewStats()
-    toast.success('恢复完成')
+    toast.success(t('restoreDone'))
   } catch (e) {
     restoreMessage.value = t('restoreFailedMessage', { message: e.message })
     restoreResult.value = ''
-    toast.error('恢复失败: ' + e.message)
+    toast.error(t('restoreFailed', { message: e.message }))
   } finally {
     restoringBackup.value = false
   }

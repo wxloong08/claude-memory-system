@@ -72,26 +72,26 @@
             class="mt-2 flex flex-wrap gap-1.5">
             <span v-if="quickFilter"
               class="inline-flex items-center gap-1 rounded-full bg-[var(--brand)]/10 px-2.5 py-1 text-xs font-medium text-[var(--brand)]">
-              搜索: {{ quickFilter }}
+              {{ t('filterChipSearch') }}: {{ quickFilter }}
               <button @click="quickFilter = ''" class="ml-0.5 hover:text-red-500">&times;</button>
             </span>
             <span v-if="selectedPlatform"
               class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-              平台: {{ selectedPlatform }}
+              {{ t('filterChipPlatform') }}: {{ selectedPlatform }}
               <button @click="selectedPlatform = ''" class="ml-0.5 hover:text-red-500">&times;</button>
             </span>
             <span v-if="selectedTimeRange !== 'all'"
               class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-              时间: {{ selectedTimeRange }}
+              {{ t('filterChipTime') }}: {{ selectedTimeRange }}
               <button @click="selectedTimeRange = 'all'" class="ml-0.5 hover:text-red-500">&times;</button>
             </span>
             <span v-if="selectedSort !== 'newest'"
               class="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600">
-              排序: {{ selectedSort }}
+              {{ t('filterChipSort') }}: {{ selectedSort }}
               <button @click="selectedSort = 'newest'" class="ml-0.5 hover:text-red-500">&times;</button>
             </span>
             <button @click="quickFilter = ''; selectedPlatform = ''; selectedTimeRange = 'all'; selectedSort = 'newest'"
-              class="text-xs text-stone-400 hover:text-red-500">清除全部</button>
+              class="text-xs text-stone-400 hover:text-red-500">{{ t('filterChipClearAll') }}</button>
           </div>
 
           <!-- Row 2: Advanced filters (toggleable) -->
@@ -192,20 +192,20 @@
     <div v-else-if="filteredConversations.length === 0" class="memory-panel rounded-[28px] p-10 text-center">
       <div class="text-2xl">🔍</div>
       <p class="mt-2 font-medium text-stone-900">{{ t('noConversationsFound') }}</p>
-      <p class="mt-1 text-xs text-stone-400">试试清除筛选条件或导入更多对话</p>
+      <p class="mt-1 text-xs text-stone-400">{{ t('emptyConversationsHint') }}</p>
       <button v-if="quickFilter || selectedPlatform || selectedTimeRange !== 'all'"
         @click="quickFilter = ''; selectedPlatform = ''; selectedTimeRange = 'all'"
         class="mt-3 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--brand)] ring-1 ring-[var(--brand)]/30 hover:bg-[var(--brand)]/5">
-        清除所有筛选
+        {{ t('clearAllFilters') }}
       </button>
     </div>
 
     <div v-else class="memory-thread-list-wrap">
       <!-- Results count indicator -->
       <div class="mb-2 flex items-center justify-between text-xs text-stone-400">
-        <span>{{ filteredConversations.length }} 条结果{{ totalAvailable > filteredConversations.length ? ' (共 ' + totalAvailable + ' 条)' : '' }}</span>
+        <span>{{ totalAvailable > filteredConversations.length ? t('resultCountTotal', { count: filteredConversations.length, total: totalAvailable }) : t('resultCount', { count: filteredConversations.length }) }}</span>
         <span v-if="renderedConversations.length < filteredConversations.length">
-          已显示 {{ renderedConversations.length }} / {{ filteredConversations.length }}
+          {{ t('showingCount', { shown: renderedConversations.length, total: filteredConversations.length }) }}
         </span>
       </div>
       <div class="memory-thread-list">
@@ -688,7 +688,7 @@ async function summarizeUnreadableConversations() {
     await loadConversations()
     statusMessage.value = t('summarizeUnreadableDone', { count: updatedCount })
   } catch (e) {
-    error.value = t('summarizeVisibleFailed', { message: e.message })
+    error.value = t('summarizeUnreadableFailed', { message: e.message })
   } finally {
     summarizing.value = false
   }

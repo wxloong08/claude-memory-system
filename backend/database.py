@@ -1,8 +1,11 @@
+import logging
 import sqlite3
 import threading
 from typing import List, Optional
 import uuid
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 LIST_SORT_SQL = {
@@ -27,8 +30,10 @@ class Database:
         self._lock = threading.RLock()
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute("PRAGMA synchronous = NORMAL")
         self.conn.execute("PRAGMA foreign_keys = ON")
-        self.conn.execute("PRAGMA busy_timeout = 5000")
+        self.conn.execute("PRAGMA busy_timeout = 15000")
         self._create_schema()
         self._ensure_schema_migrations()
 
@@ -143,6 +148,14 @@ class Database:
     def _deduplicate_preference_tables(self):
         if not self._table_exists("preferences"):
             return
+        try:
+            self._run_dedup()
+        except Exception as e:
+            logger.warning("Deduplication skipped (will retry on next startup): %s", e)
+
+    def _run_dedup(self):
+        if not self._table_exists("preferences"):
+            return
 
         duplicate_groups = self.conn.execute(
             """
@@ -223,6 +236,12 @@ class Database:
 
     def _ensure_schema_migrations(self):
         """Add newly introduced columns to existing databases."""
+        try:
+            self._run_schema_migrations()
+        except Exception as e:
+            logger.warning("Schema migration deferred (will retry next startup): %s", e)
+
+    def _run_schema_migrations(self):
         cursor = self.conn.execute("PRAGMA table_info(conversations)")
         columns = {row[1] for row in cursor.fetchall()}
 

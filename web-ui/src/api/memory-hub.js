@@ -5,7 +5,7 @@ const client = axios.create({ baseURL: '/api', timeout: 10000 })
 export default {
   async checkHealth() {
     try {
-      const { data } = await axios.get('/health')
+      const { data } = await client.get('/health')
       return data.status === 'healthy'
     } catch { return false }
   },

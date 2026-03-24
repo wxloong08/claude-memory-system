@@ -1,9 +1,29 @@
 <template>
   <div class="memory-shell lg:flex">
-    <aside class="hidden lg:flex lg:w-[17.5rem] xl:w-[18.5rem] p-4 xl:p-5">
+    <div
+      v-if="mobileMenuOpen"
+      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
+      @click="mobileMenuOpen = false"
+    ></div>
+
+    <aside
+      :class="[
+        'fixed inset-y-0 left-0 z-50 w-[17.5rem] transform transition-transform duration-300 lg:relative lg:z-auto lg:translate-x-0 lg:flex lg:w-[17.5rem] xl:w-[18.5rem]',
+        mobileMenuOpen ? 'translate-x-0 flex' : '-translate-x-full hidden lg:flex'
+      ]"
+      class="bg-[#f8f5f0] p-4 xl:p-5"
+    >
       <div class="memory-nav-panel flex min-h-[calc(100vh-2rem)] w-full flex-col rounded-[28px] px-4 py-5">
         <div class="mb-6">
           <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="mr-auto flex h-8 w-8 items-center justify-center rounded-xl text-stone-500 hover:bg-stone-100 lg:hidden"
+              aria-label="Close menu"
+              @click="mobileMenuOpen = false"
+            >
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
             <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-xs font-semibold tracking-[0.24em] text-stone-50">
               CM
             </div>
@@ -80,9 +100,19 @@
       <header class="px-4 pt-4 lg:hidden">
         <div class="memory-nav-panel rounded-[22px] px-4 py-4">
           <div class="flex items-start justify-between gap-4">
-            <div>
-              <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">{{ t('appName') }}</div>
-              <div class="mt-2 text-2xl font-semibold tracking-tight text-stone-900">{{ t('appTitle') }}</div>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100"
+                aria-label="Open menu"
+                @click="mobileMenuOpen = true"
+              >
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </button>
+              <div>
+                <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">{{ t('appName') }}</div>
+                <div class="mt-2 text-2xl font-semibold tracking-tight text-stone-900">{{ t('appTitle') }}</div>
+              </div>
             </div>
             <span
               class="memory-badge"
@@ -147,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from './api/memory-hub.js'
 import { useI18n } from './composables/useI18n.js'
@@ -155,6 +185,7 @@ import { useToast } from './composables/useToast.js'
 
 const route = useRoute()
 const connected = ref(false)
+const mobileMenuOpen = ref(false)
 let healthInterval = null
 const { locale, setLocale, t } = useI18n()
 const { toasts } = useToast()
@@ -172,6 +203,8 @@ const localeOptions = computed(() => ([
   { value: 'zh-CN', label: t('languageZh') },
   { value: 'en', label: t('languageEn') },
 ]))
+
+watch(() => route.path, () => { mobileMenuOpen.value = false })
 
 function isActive(path) {
   if (path === '/') return route.path === '/'

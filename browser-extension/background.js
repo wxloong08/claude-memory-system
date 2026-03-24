@@ -1,6 +1,7 @@
 /**
  * Claude Memory Collector - Background Service Worker
  * Simple health checking and sync event logging.
+ * Uses chrome.alarms for persistence across service worker restarts.
  */
 
 let isMemoryHubHealthy = false;
@@ -43,8 +44,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Initial health check
-checkMemoryHubHealth();
+// Use chrome.alarms for periodic health check (survives service worker restarts)
+chrome.alarms.create('healthCheck', { periodInMinutes: 0.5 });
 
-// Periodic health check every 30 seconds
-setInterval(checkMemoryHubHealth, 30000);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'healthCheck') {
+    checkMemoryHubHealth();
+  }
+});
+
+// Initial health check on service worker start
+checkMemoryHubHealth();

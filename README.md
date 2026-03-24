@@ -1,14 +1,31 @@
-# Claude Cross-Platform Memory System
+# Memory Hub — AI Cross-Platform Memory System
 
-Automatically capture and sync conversations across Claude platforms (Web, Code, Antigravity) to provide seamless context continuity.
+Capture and sync conversations across **all major AI platforms** to provide seamless context continuity.
 
-## Overview
+> Switch between Claude, ChatGPT, Gemini, Grok, DeepSeek — your context follows you.
 
-This system eliminates the need to repeat context when switching between Claude platforms. When you discuss a project in Claude Web and later open Claude Code, it automatically knows what you talked about.
+## Supported Platforms
+
+| Platform | Capture Method | Status |
+|----------|---------------|--------|
+| Claude Web | Browser Extension | ✅ |
+| ChatGPT | Browser Extension | ✅ |
+| Gemini Web | Browser Extension | ✅ |
+| Grok | Browser Extension | ✅ |
+| DeepSeek | Browser Extension | ✅ |
+| Claude Code | Hook Integration | ✅ |
+| Codex CLI | Session Import | ✅ |
+| Gemini CLI | Session Import | ✅ |
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+ (for Web UI development)
+- Chrome or Chromium-based browser
+
+### 1. Install Backend
 
 ```bash
 cd backend
@@ -19,128 +36,135 @@ pip install -r requirements.txt
 
 ```bash
 cd backend
-uvicorn main:app --reload --port 8765
+python main.py
+# Or: uvicorn main:app --reload --port 8765
 ```
 
-The Memory Hub will start on `http://localhost:8765`
+Memory Hub runs at `http://localhost:8765`. Web UI at `http://localhost:5173` (dev mode).
 
-### 3. Install Claude Code Hook
+### 3. Start Web UI (Development)
+
+```bash
+cd web-ui
+npm install
+npm run dev
+```
+
+### 4. Install Browser Extension
+
+1. Open Chrome → `chrome://extensions/`
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** → select the `browser-extension/` folder
+4. Navigate to any supported AI platform and click the extension icon
+
+### 5. (Optional) Install Claude Code Hook
 
 ```bash
 cd claude-code-integration
 ./install.sh
 ```
 
-This installs the session-start hook that automatically injects context.
-
-### 4. Install Browser Extension
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top-right)
-3. Click "Load unpacked"
-4. Select the `browser-extension/` folder
+Automatically injects recent conversation context when Claude Code starts.
 
 ## How It Works
 
-### Automatic Context Flow
-
-1. **Capture**: Browser extension monitors Claude Web conversations
-2. **Process**: Memory Hub stores and analyzes conversations
-3. **Inject**: Claude Code hook automatically loads relevant context on startup
-
-### Example Workflow
-
-**Morning (Claude Web)**:
 ```
-You: "I want to build a POD multi-agent system"
-Claude: "Great! Let's design the architecture..."
-[Browser extension captures this conversation]
+┌─────────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Browser Extension   │────▶│   Memory Hub     │────▶│   Web UI        │
+│  (5 AI platforms)    │     │   (FastAPI)      │     │   (Vue 3)       │
+└─────────────────────┘     └────────┬─────────┘     └─────────────────┘
+                                     │
+┌─────────────────────┐     ┌────────┴─────────┐
+│  Claude Code Hook    │◀───│  SQLite + Chroma  │
+│  (auto-inject)       │     │  (local storage)  │
+└─────────────────────┘     └──────────────────┘
 ```
 
-**Afternoon (Claude Code)**:
-```bash
-cd my-project
-claude
-```
-
-Claude Code automatically sees:
-```markdown
-# Auto-Generated Context
-
-## Recent Activity
-
-### claude_web - 2025-03-09 10:30
-**Summary**: Build a POD multi-agent system
-**Importance**: 9/10
-
-You discussed building a POD multi-agent system with 8 agents...
-```
-
-Claude continues the conversation without you repeating anything.
-
-## Architecture
-
-```
-Browser Extension → Memory Hub (FastAPI) → SQLite + ChromaDB
-                         ↓
-Claude Code Hook ← Context Generator
-```
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
+1. **Capture**: Browser extension detects conversations on AI platforms
+2. **Store**: Memory Hub saves to SQLite (data) + ChromaDB (vector search)
+3. **Analyze**: AI-powered summarization, importance scoring, memory extraction
+4. **Inject**: Claude Code hook loads relevant context on startup
+5. **Manage**: Web UI for browsing, searching, and managing memories
 
 ## Project Structure
 
 ```
-claude-memory-system/
-├── backend/                      # Memory Hub service
-│   ├── main.py                  # FastAPI server
-│   ├── database.py              # SQLite operations
-│   ├── models.py                # Data models
-│   ├── context_generator.py     # Context generation
-│   └── requirements.txt
+memory-hub/
+├── backend/                  # FastAPI service (Python)
+│   ├── main.py              # API server (~50 endpoints)
+│   ├── database.py          # SQLite layer (V1)
+│   ├── database_v2.py       # V2 archive + switch engine
+│   ├── vector_store.py      # ChromaDB vector search
+│   ├── ai_providers.py      # Multi-provider AI integration
+│   ├── backup_export.py     # Backup & restore
+│   └── tests/               # API contract tests
 │
-├── browser-extension/           # Chrome extension
-│   ├── manifest.json
-│   ├── content_script.js        # Conversation capture
-│   ├── background.js
-│   └── popup.html
+├── web-ui/                   # Vue 3 SPA + Tailwind CSS
+│   └── src/views/           # Dashboard, Conversations, Memories, Settings
 │
-├── claude-code-integration/     # Claude Code hooks
-│   ├── hooks/
-│   │   └── session-start.sh    # Auto-inject context
-│   └── install.sh
+├── browser-extension/        # Chrome Extension (Manifest V3)
+│   ├── platforms/           # Per-platform extractors
+│   └── core/                # Shared extraction logic
 │
-├── data/                        # Local storage
-│   ├── memory.db               # SQLite database
-│   └── conversations/          # Backup files
-│
-├── tests/                       # Test suite
-└── docs/                        # Documentation
+├── claude-code-integration/  # Claude Code hook
+├── cli/                      # CLI tool (memory-hub)
+├── scripts/                  # Import & utility scripts
+└── docs/                     # Documentation
 ```
 
-## API Endpoints
+## Configuration
 
-### Add Conversation
+Copy `.env.example` to `.env` and configure:
+
 ```bash
-POST http://localhost:8765/api/conversations
-{
-  "platform": "claude_web",
-  "timestamp": "2025-03-09T10:30:00Z",
-  "messages": [
-    {"role": "user", "content": "Hello"},
-    {"role": "assistant", "content": "Hi!"}
-  ]
-}
+cp .env.example .env
 ```
 
-### Get Context
+Key settings:
+- `MEMORY_HUB_PORT` — Server port (default: 8765)
+- `ANTHROPIC_API_KEY` — For AI analysis features
+- AI provider settings configurable via Web UI **Settings** page
+
+## API Reference
+
+### Quick Examples
+
 ```bash
-GET http://localhost:8765/api/context?hours=24&working_dir=/path/to/project
+# Health check
+curl http://localhost:8765/health
+
+# Get conversation context (for hook integration)
+curl "http://localhost:8765/api/context?hours=24"
+
+# Search conversations
+curl "http://localhost:8765/api/search?q=memory+system"
+
+# List conversations
+curl "http://localhost:8765/api/conversations?limit=20"
 ```
 
-### Health Check
+Full API documentation: [docs/API_V2_REFERENCE.md](docs/API_V2_REFERENCE.md)
+
+## V2: Cross-CLI Context Switching
+
+Memory Hub V2 adds a **three-layer memory architecture** and **CLI quick switch** for seamless context transfer between CLI tools.
+
+### Three-Layer Memory
+
+| Layer | Purpose | Persistence |
+|-------|---------|-------------|
+| **Archive** | Full conversation transcripts | Permanent |
+| **Core** | Structured knowledge: facts, preferences, decisions | Long-term |
+| **Working** | Active task state per workspace | Session-scoped |
+
+### CLI Switch Tool
+
 ```bash
-GET http://localhost:8765/health
+memory-hub switch --to gemini_cli     # Switch with context injection
+memory-hub status                      # View workspace state
+memory-hub save-state --task "..."     # Save working state
+memory-hub import --source all         # Import local sessions
+memory-hub search <query>              # Search conversations
 ```
 
 ## Development
@@ -148,160 +172,46 @@ GET http://localhost:8765/health
 ### Run Tests
 
 ```bash
-pytest tests/ -v
+cd backend
+python -m pytest tests/test_api_contracts.py -x -q
+```
+
+### Build Web UI
+
+```bash
+cd web-ui
+npm run build
 ```
 
 ### Manual Testing
 
-Test the API:
 ```bash
-# Check health
+# Verify backend
 curl http://localhost:8765/health
+# Expected: {"status":"healthy","database":"ok","vector_store":"ok"}
 
-# Get context
-curl "http://localhost:8765/api/context?hours=24"
+# Verify extension connection
+# Open popup on any AI platform → should show "Connected"
 ```
-
-## Configuration
-
-### Memory Hub Settings
-
-Edit `backend/config.py` (future):
-- Port: Default 8765
-- Database path: `data/memory.db`
-- Importance threshold: 7 (only inject conversations rated 7+)
-- Time window: 24 hours
-
-### Hook Settings
-
-Edit `~/.claude/hooks/session-start.sh`:
-- Adjust time window: `hours=24`
-- Change importance threshold: `min_importance=7`
-
-## Troubleshooting
-
-### Memory Hub Not Running
-```bash
-# Check if service is running
-curl http://localhost:8765/health
-
-# Start manually
-cd backend
-uvicorn main:app --port 8765
-```
-
-### Hook Not Working
-```bash
-# Check hook is installed
-ls -la ~/.claude/hooks/session-start.sh
-
-# Test hook manually
-bash ~/.claude/hooks/session-start.sh
-```
-
-### Extension Not Capturing
-1. Check extension is loaded in `chrome://extensions/`
-2. Open browser console on Claude.ai
-3. Look for "Claude Memory Collector" logs
 
 ## Privacy & Security
 
-- **Local-first**: All data stored locally, never uploaded
+- **Local-first**: All data stored locally, never uploaded to external servers
 - **Localhost-only**: Memory Hub only accessible from your machine
-- **User control**: Delete any conversation anytime
+- **User control**: Delete any conversation or memory anytime
 - **No tracking**: No analytics or external connections
 
-## Roadmap
+## Documentation
 
-### Phase 1: MVP (Current)
-- ✅ Basic conversation capture
-- ✅ SQLite storage
-- ✅ Context injection
-- ✅ Browser extension
-- ✅ Claude Code hook
-
-### Phase 2: Intelligence (Weeks 3-4)
-- [ ] ChromaDB vector search
-- [ ] Automatic conversation linking
-- [ ] Improved importance scoring
-
-### Phase 3: Advanced Memory (Weeks 5-6)
-- [ ] Daily memory consolidation
-- [ ] Memory decay (forgetting curve)
-- [ ] Preference learning
-
-### Phase 4: Extended Integration (Week 7)
-- [ ] Antigravity support
-- [ ] Web UI for memory management
-- [ ] MCP server integration
-
-## V2: Cross-CLI Context Switching
-
-Memory Hub V2 adds a **three-layer memory architecture** and **CLI quick switch** -- enabling seamless context transfer between Claude Code, Codex CLI, Gemini CLI, and Antigravity.
-
-### V2 Quick Start
-
-```bash
-# 1. Start the backend (same as V1)
-cd backend
-uvicorn main:app --reload --port 8765
-
-# 2. Import existing CLI sessions into V2 archive
-python cli/memory_hub.py import --source all
-
-# 3. Save your current task state
-python cli/memory_hub.py save-state --task "My current task"
-
-# 4. Switch to another CLI with full context
-python cli/memory_hub.py switch --to gemini_cli
-```
-
-### V2 Three-Layer Memory
-
-| Layer | Purpose | Persistence |
-|-------|---------|-------------|
-| **Archive** | Full conversation transcripts with per-message compression | Permanent |
-| **Core** | Structured knowledge: facts, preferences, decisions | Long-term |
-| **Working** | Active task state per workspace | Session-scoped |
-
-### V2 CLI Tool: memory-hub
-
-```bash
-memory-hub switch --to <cli>     # Switch CLI with context injection
-memory-hub status                # View current workspace state
-memory-hub save-state --task ... # Save working state manually
-memory-hub import --source all   # Import local CLI sessions
-memory-hub search <query>        # Search conversations
-memory-hub history               # View switch history
-```
-
-See [CLI Switch Guide](docs/CLI_SWITCH_GUIDE.md) for full usage documentation.
-
-### V2 Documentation
-
-- [CLI Switch Guide](docs/CLI_SWITCH_GUIDE.md) -- User guide for CLI switching (Chinese)
-- [API V2 Reference](docs/API_V2_REFERENCE.md) -- Complete V2 API documentation
-- [Architecture](ARCHITECTURE.md) -- System design with V2 three-layer model
-- [V2 Migration Guide](docs/V2_MIGRATION_GUIDE.md) -- Migrating from V1 to V2
-
----
-
-## Contributing
-
-This is an internal project. Team members:
-- **Alex Chen**: Lead Architect
-- **Sarah Kim**: Backend Development
-- **Marcus Rodriguez**: Integration & Deployment
-- **Emily Watson**: Browser Extension
-- **David Park**: QA & Testing
+| Document | Description |
+|----------|-------------|
+| [Architecture](ARCHITECTURE.md) | System design & V2 three-layer model |
+| [API V2 Reference](docs/API_V2_REFERENCE.md) | Complete API documentation |
+| [User Manual](docs/USER_MANUAL.md) | Detailed usage guide (Chinese) |
+| [CLI Switch Guide](docs/CLI_SWITCH_GUIDE.md) | CLI switching guide (Chinese) |
+| [V2 Migration Guide](docs/V2_MIGRATION_GUIDE.md) | Upgrading from V1 to V2 |
+| [Import Guide](docs/IMPORT_GUIDE.md) | Importing local sessions |
 
 ## License
 
-MIT License - Internal Use
-
-## Support
-
-For issues or questions, contact the team lead or check:
-- Implementation Plan: `docs/plans/2025-03-09-cross-platform-memory-implementation.md`
-- Design Document: `docs/plans/2025-03-09-cross-platform-memory-system-design.md`
-- Architecture: `ARCHITECTURE.md`
+[MIT License](LICENSE)

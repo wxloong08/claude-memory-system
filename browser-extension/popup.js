@@ -16,23 +16,23 @@ const PLATFORMS = {
 const CONTENT_SCRIPT_TARGETS = [
   {
     match: url => url.hostname.includes('claude.ai'),
-    files: ['browser-extension/core/extractor.js', 'browser-extension/platforms/claude.js', 'browser-extension/content_script.js']
+    files: ['core/extractor.js', 'platforms/claude.js', 'content_script.js']
   },
   {
     match: url => url.hostname.includes('chatgpt.com') || url.hostname.includes('chat.openai.com'),
-    files: ['browser-extension/core/extractor.js', 'browser-extension/platforms/chatgpt.js', 'browser-extension/content_script.js']
+    files: ['core/extractor.js', 'platforms/chatgpt.js', 'content_script.js']
   },
   {
     match: url => url.hostname.includes('gemini.google.com'),
-    files: ['browser-extension/core/extractor.js', 'browser-extension/platforms/gemini.js', 'browser-extension/content_script.js']
+    files: ['core/extractor.js', 'platforms/gemini.js', 'content_script.js']
   },
   {
     match: url => url.hostname.includes('grok.com') || (url.hostname.includes('x.com') && url.pathname.startsWith('/i/grok')),
-    files: ['browser-extension/core/extractor.js', 'browser-extension/platforms/grok.js', 'browser-extension/content_script.js']
+    files: ['core/extractor.js', 'platforms/grok.js', 'content_script.js']
   },
   {
     match: url => url.hostname.includes('chat.deepseek.com'),
-    files: ['browser-extension/core/extractor.js', 'browser-extension/platforms/deepseek.js', 'browser-extension/content_script.js']
+    files: ['core/extractor.js', 'platforms/deepseek.js', 'content_script.js']
   }
 ];
 

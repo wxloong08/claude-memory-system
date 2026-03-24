@@ -6,7 +6,10 @@ Claude uses its own format via the Anthropic SDK pattern.
 
 import httpx
 import json
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 PROVIDER_DEFAULTS = {
     "claude": {"base_url": "https://api.anthropic.com", "default_model": "claude-sonnet-4-20250514"},
@@ -101,7 +104,7 @@ def create_provider(provider_name: str, config: dict) -> AIProvider:
 
     if provider_name == "custom":
         if not base_url or not model:
-            print(f"Warning: custom provider requires both base_url and model")
+            logger.warning("Custom provider requires both base_url and model")
             return None
         return OpenAICompatibleProvider(api_key, model, base_url)
 

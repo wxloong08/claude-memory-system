@@ -4,6 +4,7 @@ Uses ChromaDB with a deterministic local embedding function so search works
 without downloading external ONNX models at runtime.
 """
 
+import logging
 import math
 import os
 import re
@@ -12,6 +13,8 @@ from typing import Dict, Iterable, List
 
 import chromadb
 from chromadb.config import Settings
+
+logger = logging.getLogger(__name__)
 
 
 class LocalHashEmbeddingFunction:
@@ -71,7 +74,7 @@ class VectorStore:
             embedding_function=self.embedding_function,
         )
 
-        print(f"✅ VectorStore initialized with {self.collection.count()} documents")
+        logger.info("VectorStore initialized with %d documents", self.collection.count())
 
     def add_conversation(self, conv_id: str, content: str, metadata: Dict = None):
         """添加或更新对话到向量存储"""
@@ -81,10 +84,10 @@ class VectorStore:
                 documents=[content],
                 metadatas=[metadata or {}],
             )
-            print(f"✅ Indexed conversation {conv_id[:8]}... in vector store")
+            logger.info("Indexed conversation %s in vector store", conv_id[:8])
             return True
         except Exception as e:
-            print(f"❌ Error adding to vector store: {e}")
+            logger.error("Error adding to vector store: %s", e)
             return False
 
     def sync_from_records(self, records: List[Dict]):
@@ -117,9 +120,9 @@ class VectorStore:
 
         try:
             self.collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
-            print(f"✅ Synced {len(ids)} conversations into vector store")
+            logger.info("Synced %d conversations into vector store", len(ids))
         except Exception as e:
-            print(f"❌ Error syncing vector store: {e}")
+            logger.error("Error syncing vector store: %s", e)
 
     def search(self, query: str, top_k: int = 5, filter_metadata: Dict = None) -> List[Dict]:
         """搜索相似对话"""
@@ -142,7 +145,7 @@ class VectorStore:
 
             return formatted_results
         except Exception as e:
-            print(f"❌ Error searching vector store: {e}")
+            logger.error("Error searching vector store: %s", e)
             return []
 
     def find_related_conversations(self, conv_id: str, top_k: int = 3) -> List[Dict]:
@@ -157,17 +160,17 @@ class VectorStore:
             all_results = self.search(content, top_k=top_k + 1)
             return [item for item in all_results if item["id"] != conv_id][:top_k]
         except Exception as e:
-            print(f"❌ Error finding related conversations: {e}")
+            logger.error("Error finding related conversations: %s", e)
             return []
 
     def delete_conversation(self, conv_id: str):
         """删除对话"""
         try:
             self.collection.delete(ids=[conv_id])
-            print(f"✅ Deleted conversation {conv_id[:8]}... from vector store")
+            logger.info("Deleted conversation %s from vector store", conv_id[:8])
             return True
         except Exception as e:
-            print(f"❌ Error deleting from vector store: {e}")
+            logger.error("Error deleting from vector store: %s", e)
             return False
 
     def get_stats(self) -> Dict:
@@ -186,4 +189,4 @@ class VectorStore:
             metadata={"hnsw:space": "cosine"},
             embedding_function=self.embedding_function,
         )
-        print("⚠️  Vector store has been reset")
+        logger.warning("Vector store has been reset")
